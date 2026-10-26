@@ -56,6 +56,9 @@ jobs:
           distribution: temurin
           java-version: '17'
       - uses: android-actions/setup-android@v3
+        with:
+          # Override the action default: the legacy "tools" package is unavailable.
+          packages: platform-tools
       - uses: gradle/actions/setup-gradle@v4
       - run: bun install --frozen-lockfile
       - name: Resolve release metadata
