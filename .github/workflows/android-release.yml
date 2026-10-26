@@ -12,7 +12,7 @@ on:
       publish_to_play:
         description: Publish signed AAB to Google Play
         type: boolean
-        default: false
+        default: true
       play_track:
         description: Google Play track
         type: choice
