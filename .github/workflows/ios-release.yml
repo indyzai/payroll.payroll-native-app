@@ -1,0 +1,122 @@
+name: iOS Release
+on:
+  push:
+    branches: [main, master]
+    tags: ['v*']
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: ios-release-${{ github.ref }}
+  cancel-in-progress: false
+env:
+  CI: '1'
+  EXPO_NO_TELEMETRY: '1'
+  NODE_OPTIONS: --max-old-space-size=6144
+jobs:
+  validate:
+    uses: ./.github/workflows/ci.yml
+  ios:
+    name: Build iOS Simulator app
+    needs: validate
+    runs-on: macos-latest
+    timeout-minutes: 90
+    outputs:
+      tag: ${{ steps.release.outputs.tag }}
+      prerelease: ${{ steps.release.outputs.prerelease }}
+      release_name: ${{ steps.release.outputs.release_name }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: .bun-version
+      - run: bun install --frozen-lockfile
+      - name: Resolve release metadata
+        id: release
+        run: bash .github/scripts/release-metadata.sh
+      - name: Generate iOS project
+        run: bunx expo prebuild --clean --platform ios --no-install
+      - name: Install CocoaPods dependencies
+        working-directory: ios
+        run: pod install
+      - name: Detect workspace and application scheme
+        id: xcode
+        shell: bash
+        run: |
+          set -euo pipefail
+          workspace="$(find ios -maxdepth 1 -name '*.xcworkspace' -type d -print -quit)"
+          project="$(find ios -maxdepth 1 -name '*.xcodeproj' -type d -print -quit)"
+          test -n "$workspace" && test -n "$project"
+          project_name="$(basename "$project" .xcodeproj)"
+          xcodebuild -list -json -project "$project" > "$RUNNER_TEMP/ios-project.json"
+          scheme="$(ruby -rjson -e 'name=ARGV[0]; schemes=JSON.parse(STDIN.read).dig("project", "schemes") || []; puts(schemes.find { |s| s == name } || schemes.first)' "$project_name" < "$RUNNER_TEMP/ios-project.json")"
+          test -n "$scheme"
+          echo "workspace=$workspace" >> "$GITHUB_OUTPUT"
+          echo "scheme=$scheme" >> "$GITHUB_OUTPUT"
+      - name: Build standalone simulator app
+        env:
+          WORKSPACE: ${{ steps.xcode.outputs.workspace }}
+          SCHEME: ${{ steps.xcode.outputs.scheme }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          xcodebuild -workspace "$WORKSPACE" -scheme "$SCHEME" \
+            -configuration Release -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath "$RUNNER_TEMP/payroll-derived-data" \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO build \
+            > "$RUNNER_TEMP/xcodebuild.log" 2>&1 || {
+              tail -100 "$RUNNER_TEMP/xcodebuild.log"
+              exit 1
+            }
+      - name: Package simulator app
+        env:
+          RELEASE_TAG: ${{ steps.release.outputs.tag }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          app="$(find "$RUNNER_TEMP/payroll-derived-data/Build/Products/Release-iphonesimulator" -maxdepth 1 -name '*.app' -type d -print -quit)"
+          test -n "$app"
+          mkdir -p release
+          ditto -c -k --sequesterRsrc --keepParent "$app" "release/indyzpay-${RELEASE_TAG}-ios-simulator.zip"
+      - name: Upload build log
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-build-log
+          path: ${{ runner.temp }}/xcodebuild.log
+          if-no-files-found: ignore
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ios-payroll-artifacts
+          path: release/*
+          if-no-files-found: error
+          retention-days: 14
+  github-release:
+    name: Attach iOS artifacts to GitHub Release
+    needs: ios
+    concurrency:
+      group: github-release-${{ github.sha }}
+      cancel-in-progress: false
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: ios-payroll-artifacts
+          path: release-assets
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.ios.outputs.tag }}
+          target_commitish: ${{ github.sha }}
+          name: ${{ needs.ios.outputs.release_name }}
+          prerelease: ${{ needs.ios.outputs.prerelease }}
+          generate_release_notes: true
+          fail_on_unmatched_files: true
+          files: release-assets/*

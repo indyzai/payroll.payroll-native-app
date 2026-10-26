@@ -1,0 +1,152 @@
+name: Android Release
+on:
+  push:
+    branches: [main, master]
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      archs:
+        description: Comma-separated Android ABIs
+        type: string
+        default: arm64-v8a,armeabi-v7a
+      publish_to_play:
+        description: Publish signed AAB to Google Play
+        type: boolean
+        default: false
+      play_track:
+        description: Google Play track
+        type: choice
+        default: internal
+        options: [internal, alpha, beta, production]
+permissions:
+  contents: read
+concurrency:
+  group: android-release-${{ github.ref }}
+  cancel-in-progress: false
+env:
+  CI: '1'
+  EXPO_NO_TELEMETRY: '1'
+  NODE_OPTIONS: --max-old-space-size=6144
+jobs:
+  validate:
+    uses: ./.github/workflows/ci.yml
+  android:
+    name: Build Android APK and optional signed AAB
+    needs: validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    outputs:
+      tag: ${{ steps.release.outputs.tag }}
+      prerelease: ${{ steps.release.outputs.prerelease }}
+      release_name: ${{ steps.release.outputs.release_name }}
+    env:
+      HAS_UPLOAD_KEY: ${{ secrets.ANDROID_KEYSTORE_BASE64 != '' }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: .bun-version
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+      - uses: gradle/actions/setup-gradle@v4
+      - run: bun install --frozen-lockfile
+      - name: Resolve release metadata
+        id: release
+        run: bash .github/scripts/release-metadata.sh
+      - name: Check publishing prerequisites
+        if: inputs.publish_to_play == true
+        env:
+          PLAY_KEY: ${{ secrets.PLAY_STORE_SERVICE_ACCOUNT_JSON }}
+        run: |
+          if [[ "$HAS_UPLOAD_KEY" != true || -z "$PLAY_KEY" ]]; then
+            echo '::error::Google Play publishing requires the Android signing secrets and PLAY_STORE_SERVICE_ACCOUNT_JSON.'
+            exit 1
+          fi
+      - name: Generate Android project
+        run: bunx expo prebuild --clean --platform android --no-install
+      - name: Build APK and AAB
+        env:
+          ARCHS: ${{ inputs.archs || 'arm64-v8a,armeabi-v7a' }}
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          RELEASE_TAG: ${{ steps.release.outputs.tag }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ ! "$ARCHS" =~ ^(arm64-v8a|armeabi-v7a|x86|x86_64)(,(arm64-v8a|armeabi-v7a|x86|x86_64))*$ ]]; then
+            echo '::error::Unsupported Android ABI list.'
+            exit 1
+          fi
+          mkdir -p release
+          cd android
+          if [[ "$HAS_UPLOAD_KEY" == true ]]; then
+            : "${ANDROID_KEYSTORE_PASSWORD:?Missing keystore password}"
+            : "${ANDROID_KEY_ALIAS:?Missing key alias}"
+            : "${ANDROID_KEY_PASSWORD:?Missing key password}"
+            KEYSTORE_PATH="$RUNNER_TEMP/indyzpay-upload.jks"
+            printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 --decode > "$KEYSTORE_PATH"
+            chmod 600 "$KEYSTORE_PATH"
+            ./gradlew app:assembleRelease app:bundleRelease --build-cache \
+              -PreactNativeArchitectures="$ARCHS" \
+              -Pandroid.injected.signing.store.file="$KEYSTORE_PATH" \
+              -Pandroid.injected.signing.store.password="$ANDROID_KEYSTORE_PASSWORD" \
+              -Pandroid.injected.signing.key.alias="$ANDROID_KEY_ALIAS" \
+              -Pandroid.injected.signing.key.password="$ANDROID_KEY_PASSWORD"
+            cp app/build/outputs/apk/release/app-release.apk "../release/indyzpay-${RELEASE_TAG}.apk"
+            cp app/build/outputs/bundle/release/app-release.aab "../release/indyzpay-${RELEASE_TAG}.aab"
+          else
+            echo '::notice::No upload keystore configured. Building a debug-signed APK for testing only.'
+            ./gradlew app:assembleDebug --build-cache -PreactNativeArchitectures="$ARCHS"
+            cp app/build/outputs/apk/debug/app-debug.apk "../release/indyzpay-${RELEASE_TAG}-debug.apk"
+          fi
+      - name: Publish signed AAB to Google Play
+        if: inputs.publish_to_play == true
+        uses: r0adkll/upload-google-play@v1
+        with:
+          serviceAccountJsonPlainText: ${{ secrets.PLAY_STORE_SERVICE_ACCOUNT_JSON }}
+          packageName: com.indyzai.payroll.app
+          releaseFiles: release/*.aab
+          track: ${{ inputs.play_track || 'internal' }}
+          status: completed
+      - name: Remove temporary signing key
+        if: always()
+        run: rm -f "$RUNNER_TEMP/indyzpay-upload.jks"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: android-payroll-artifacts
+          path: release/*
+          if-no-files-found: error
+          retention-days: 14
+  github-release:
+    name: Attach Android artifacts to GitHub Release
+    needs: android
+    concurrency:
+      group: github-release-${{ github.sha }}
+      cancel-in-progress: false
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: android-payroll-artifacts
+          path: release-assets
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.android.outputs.tag }}
+          target_commitish: ${{ github.sha }}
+          name: ${{ needs.android.outputs.release_name }}
+          prerelease: ${{ needs.android.outputs.prerelease }}
+          generate_release_notes: true
+          fail_on_unmatched_files: true
+          files: release-assets/*

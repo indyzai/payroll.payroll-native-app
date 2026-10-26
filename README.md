@@ -1,56 +1,78 @@
-# Welcome to your Expo app 👋
+# indyzpay mobile
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+React Native / Expo SDK 58 companion to [indyzai/indyzpay](https://github.com/indyzai/indyzpay). Built for iOS, Android, and web using Expo Router.
 
-## Get started
+## Run with Bun
 
-1. Install dependencies
+Use Node 22.13+ (Expo CLI requirement) and Bun 1.4+.
 
-   ```bash
-   npm install
-   ```
-
-2. Start the app
-
-   ```bash
-   npx expo start
-   ```
-
-In the output, you'll find options to open the app in a
-
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **src/app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
-
-```bash
-npm run reset-project
+```sh
+bun install
+bun start
+# or
+bun run ios
+bun run android
+bun run web
 ```
 
-This command will move the starter code to the **example** directory and create a blank **src/app** directory where you can start developing.
+`ios` and `android` open a locally configured simulator/emulator. Physical device support depends on an Expo Go version compatible with SDK 58; otherwise use a development build. No native project directories are maintained by hand.
 
-### Other setup steps
+## Included workflows
 
-- To set up ESLint for linting, run `npx expo lint`, or follow our guide on ["Using ESLint and Prettier"](https://docs.expo.dev/guides/using-eslint/)
-- If you'd like to set up unit testing, follow our guide on ["Unit Testing with Jest"](https://docs.expo.dev/develop/unit-testing/)
-- Learn more about the TypeScript setup in this template in our guide on ["Using TypeScript"](https://docs.expo.dev/guides/typescript/)
+- Employee dashboard and an illustrative salary breakdown using the original indyzpay employee seed and calculation.
+- Share a clearly labeled simulated payslip through the system share sheet.
+- Annual leave requests with strict date validation, overlap detection, and a shared leave balance. Calendar days count; pending requests reserve balance.
+- Expense claims in INR, with finite positive amount validation.
+- HR approval/rejection with immediate updates across employee and HR workspaces.
+- Five-step simulated payroll cycle that blocks on pending requests and prevents repeat disbursement.
+- Searchable employee directory and demo employee switching.
+- Failure injection, simulated request latency, bounded request log, and reset controls.
 
-## Learn more
+Use the workspace selector at the top of each screen to switch between Employee and HR. Use People to change the demo employee. All demo roles are freely selectable; this is not authentication or authorization.
 
-To learn more about developing your project with Expo, look at the following resources:
+## Architecture and limits
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+`src/demo/model.ts` contains pure commands and validation. `src/demo/provider.tsx` owns the single in-memory workspace, serializes mutations, and simulates 550 ms API latency and failures. Screens do not maintain copies of financial state. `src/demo/source.ts` preserves the web app's seed data and illustrative salary calculation.
 
-## Join the community
+This version is an India / INR demo, not full feature parity with the web application. It does not implement international payroll, tax declarations, statutory filings, POS, production authentication, backend connectivity, notifications, or persistence. Expense approvals are tracked separately and are not included in salary payments. All salaries, taxes, payslips, approvals, and transfers are simulations. No bank, government, identity, or HRMS API is called. Restarting the app resets the workspace.
 
-Join our community of developers creating universal apps.
+## Checks
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+```sh
+bun run typecheck
+bun run lint
+bun test
+bun run export:web
+bunx expo export --platform ios --platform android
+```
+
+Tests cover cross-workspace approval state, leave balance restoration, invalid dates, overlap and balance limits, expense amounts, payroll blockers, and prevention of duplicate disbursement. Bundle exports do not replace testing on physical devices.
+
+## Brand assets
+
+Launcher, Android adaptive/monochrome, splash, favicon, and navigation icons are generated from editable SVG sources in `assets/brand`. Regenerate them with `bun run icons`. Native launcher and splash changes require a new app build.
+
+## GitHub Actions
+
+The workflows follow the POS native app's CI + Android + iOS release structure, adapted to this single Expo app and Bun 1.4.1.
+
+- `CI`: pull requests and pushes to `main`/`master`; frozen Bun install, typecheck, lint, tests, and web export. Also reused as the validation gate for native builds.
+- `Android Release`: pushes to `main`/`master`, `v*` tags, or manual dispatch. Produces a debug-signed APK without signing secrets (requires Metro via `bun start`), or a signed release APK and AAB with the secrets below.
+- `iOS Release`: the same release triggers; produces a standalone Release simulator `.app` in a ZIP. This is not an IPA for physical devices or App Store submission and needs no Apple signing secrets.
+- Native artifacts are retained for 14 days and attached to GitHub Releases. Branch builds use `v<app-version>-alpha.<commit>` prereleases; version tags use the supplied tag. Android and iOS attach to the same release, with publication serialized to avoid concurrent creation.
+
+Native projects are generated on the runners with Expo Prebuild. Package/bundle ID: `com.indyzai.payroll.app`. Confirm this identifier before registering the application in either store.
+
+For signed Android release builds, configure these repository secrets:
+
+| Secret | Value |
+| --- | --- |
+| `ANDROID_KEYSTORE_BASE64` | Base64-encoded upload keystore |
+| `ANDROID_KEYSTORE_PASSWORD` | Keystore password |
+| `ANDROID_KEY_ALIAS` | Upload key alias |
+| `ANDROID_KEY_PASSWORD` | Upload key password |
+| `PLAY_STORE_SERVICE_ACCOUNT_JSON` | Raw Google Play service-account JSON; required only for publishing |
+
+Google Play upload is opt-in through manual dispatch (`publish_to_play: true`, default track `internal`). The app must already be configured in Play Console, with access granted to the service account. No store publishing occurs on ordinary pushes. CI uses the built-in GitHub token; no POS repository PAT or submodule secrets are needed.
+
+Native build numbers use the platform workflow's `github.run_number`; ensure this is greater than any previously uploaded store build before enabling publishing. Numeric versions are written only in the runner checkout; source files and git history are not rewritten.
