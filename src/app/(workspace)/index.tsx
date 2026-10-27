@@ -1,3 +1,9 @@
+import {
+  indiaDateKey,
+  latestRecordedPay,
+  monthlyPayAmounts,
+  monthLabel,
+} from "@/demo/pay-history";
 import { usePayrollSession } from "@/auth/session";
 import { router } from "expo-router";
 import { Text, View } from "react-native";
@@ -9,14 +15,15 @@ import {
   Screen,
   usePayrollUi,
 } from "@/components/mobile-ui";
-import { breakdown, leaveAvailable, money } from "@/demo/model";
+import { leaveAvailable, money } from "@/demo/model";
 import { useDemo } from "@/demo/provider";
 export default function Home() {
   const { session } = usePayrollSession();
   const { s } = usePayrollUi();
   const { state, employeeId, portal } = useDemo();
   const person = state.people.find((p) => p.id === employeeId)!;
-  const pay = breakdown(person.ctc);
+  const latest = latestRecordedPay(state, employeeId, indiaDateKey());
+  const pay = latest?.amounts ?? monthlyPayAmounts(person.ctc);
   const pending = state.requests.filter((r) => r.status === "Pending");
   const active = state.people.filter((p) => p.status !== "Exited");
   return (
@@ -38,7 +45,9 @@ export default function Home() {
         <View style={s.row}>
           <Text style={{ color: "#B6CEC0", fontSize: 12 }}>
             {portal === "Employee"
-              ? "SEPTEMBER 2026 · NET PAY"
+              ? latest
+                ? `${monthLabel(latest.month).toUpperCase()} · NET PAY`
+                : "ESTIMATED NET PAY"
               : "OCTOBER 2026 · ESTIMATED NET PAY"}
           </Text>
           <Text style={{ color: "#E4BB69" }}>↗</Text>
@@ -47,11 +56,13 @@ export default function Home() {
           {money(
             portal === "Employee"
               ? pay.net
-              : active.reduce((n, p) => n + breakdown(p.ctc).net, 0),
+              : active.reduce((n, p) => n + monthlyPayAmounts(p.ctc).net, 0),
           )}
         </Text>
         <Text style={{ color: "#B6CEC0", fontSize: 12 }}>
-          Simulated payroll · INR
+          {portal === "Employee" && latest
+            ? "Recorded demo payment · INR"
+            : "Simulated payroll · INR"}
         </Text>
         <Button
           title={
@@ -120,7 +131,7 @@ export default function Home() {
         ))}
         {portal !== "Employee" && (
           <Row
-            title="October payroll"
+            title={`${monthLabel(state.payrollMonth)} payroll`}
             detail="Current simulated cycle"
             value={state.paid ? "Complete" : "In progress"}
           />

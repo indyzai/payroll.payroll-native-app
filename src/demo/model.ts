@@ -1,3 +1,8 @@
+import {
+  seedPayHistory,
+  monthlyPayAmounts,
+  type PayRecord,
+} from "./pay-history";
 import { breakdown, employees } from "./source";
 export { breakdown };
 export type Request = {
@@ -12,6 +17,8 @@ export type Request = {
   to?: string;
 };
 export type Workspace = {
+  payrollMonth: string;
+  payHistory: PayRecord[];
   people: typeof employees;
   requests: Request[];
   stage: number;
@@ -31,6 +38,8 @@ export const stages = [
 ];
 export function seed(): Workspace {
   return {
+    payrollMonth: "2026-10",
+    payHistory: seedPayHistory(employees),
     people: employees.map((p) => ({ ...p })),
     stage: 0,
     paid: false,
@@ -141,5 +150,33 @@ export function applyCommand(state: Workspace, command: Command): Workspace {
   if (state.paid) throw Error("This payroll cycle is complete.");
   if (state.requests.some((r) => r.status === "Pending"))
     throw Error("Review pending requests before advancing payroll.");
-  return { ...state, stage: state.stage + 1, paid: state.stage === 4 };
+  const completing = state.stage === 4;
+  const snapshots: PayRecord[] = completing
+    ? state.people
+        .filter((person) => person.status !== "Exited")
+        .map((person) => ({
+          employeeId: person.id,
+          month: state.payrollMonth,
+          currency: "INR",
+          source: "payroll",
+          amounts: monthlyPayAmounts(person.ctc),
+        }))
+    : [];
+  return {
+    ...state,
+    stage: state.stage + 1,
+    paid: completing,
+    payHistory: completing
+      ? [
+          ...state.payHistory.filter(
+            (record) =>
+              record.month !== state.payrollMonth ||
+              !snapshots.some(
+                (snapshot) => snapshot.employeeId === record.employeeId,
+              ),
+          ),
+          ...snapshots,
+        ]
+      : state.payHistory,
+  };
 }

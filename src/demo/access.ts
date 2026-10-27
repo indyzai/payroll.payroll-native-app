@@ -8,6 +8,9 @@ export function visibleWorkspace(
   if (access.role !== "Employee") return state;
   return {
     ...state,
+    payHistory: state.payHistory.filter(
+      (record) => record.employeeId === access.employeeId,
+    ),
     people: state.people.filter((person) => person.id === access.employeeId),
     requests: state.requests.filter(
       (request) => request.employeeId === access.employeeId,
