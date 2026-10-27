@@ -1,0 +1,16 @@
+{
+  "name": "payroll-app",
+  "clientId": "payroll-app",
+  "redirectUrls": {
+    "native": {
+      "url": "indyzpay://auth/callback",
+      "kind": "native"
+    },
+    "dev-web": "http://localhost:6500",
+    "expo-go": {
+      "url": "exp://localhost:6500/--/auth/callback",
+      "kind": "expo",
+      "allowPrivateHost": true
+    }
+  }
+}

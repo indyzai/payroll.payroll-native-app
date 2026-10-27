@@ -1,5 +1,6 @@
+import { accessForSession, canOpenScreen } from "@/auth/access";
 import { Tabs } from "expo-router";
-import { AppIcon, type IconName } from "@/components/app-icon";
+import { AppIcon } from "@/components/app-icon";
 import { StatusBar } from "expo-status-bar";
 import { DemoProvider } from "@/demo/provider";
 import { usePayrollSession } from "@/auth/session";
@@ -7,8 +8,15 @@ import { usePayrollTheme } from "@/theme/payroll-theme";
 export default function Layout() {
   const { colors, isDark } = usePayrollTheme();
   const { session } = usePayrollSession();
+  const access = accessForSession(session);
   return (
-    <DemoProvider initialPortal={session?.portal ?? "Employee"}>
+    <DemoProvider
+      key={`${session?.kind}:${session?.user.id}:${session?.tenant.id}:${access.role}`}
+      initialEmployeeId={
+        session?.kind === "demo" ? session.employeeId : "IZ001"
+      }
+      initialPortal={access.role}
+    >
       <StatusBar style={isDark ? "light" : "dark"} />
       <Tabs
         screenOptions={{
@@ -25,24 +33,47 @@ export default function Layout() {
           tabBarLabelStyle: { fontSize: 11 },
         }}
       >
-        {[
-          { name: "index", title: "Home", icon: "home" },
-          { name: "payroll", title: "Payroll", icon: "payroll" },
-          { name: "requests", title: "Requests", icon: "requests" },
-          { name: "people", title: "People", icon: "people" },
-          { name: "settings", title: "Account", icon: "account" },
-        ].map((t) => (
+        <Tabs.Screen
+          name="index"
+          options={{
+            title: access.role === "Employee" ? "Home" : "Overview",
+            tabBarIcon: ({ color }) => <AppIcon name="home" color={color} />,
+          }}
+        />
+        <Tabs.Screen
+          name="payroll"
+          options={{
+            title: access.role === "Employee" ? "My pay" : "Payroll",
+            tabBarIcon: ({ color }) => <AppIcon name="payroll" color={color} />,
+          }}
+        />
+        <Tabs.Screen
+          name="requests"
+          options={{
+            title: access.role === "Employee" ? "My requests" : "Approvals",
+            tabBarIcon: ({ color }) => (
+              <AppIcon name="requests" color={color} />
+            ),
+          }}
+        />
+        <Tabs.Protected guard={canOpenScreen(access.role, "people")}>
           <Tabs.Screen
-            key={t.name}
-            name={t.name}
+            name="people"
             options={{
-              title: t.title,
+              title: "People",
               tabBarIcon: ({ color }) => (
-                <AppIcon name={t.icon as IconName} color={color} />
+                <AppIcon name="people" color={color} />
               ),
             }}
           />
-        ))}
+        </Tabs.Protected>
+        <Tabs.Screen
+          name="settings"
+          options={{
+            title: "Account",
+            tabBarIcon: ({ color }) => <AppIcon name="account" color={color} />,
+          }}
+        />
       </Tabs>
     </DemoProvider>
   );

@@ -29,7 +29,7 @@ export function PayrollAuthSurface({ children }: { children: ReactNode }) {
       loginTitle: "Welcome to IndyzPay",
       loginSubtitle: "Your work. Your pay. All in one place.",
       loginNote:
-        "Sign in with your IndyzAI account. Payroll records in this workspace remain simulated.",
+        "Sign in with your IndyzAI account, or explore one of the local demo accounts below.",
       signupTitle: "A calmer way to payday.",
       signupNote: "Payroll, with peace of mind · IndyzAI identity",
       registrationDomainField: true,

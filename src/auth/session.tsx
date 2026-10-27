@@ -8,30 +8,40 @@ import {
   type ReactNode,
 } from "react";
 import { AppState } from "react-native";
+import {
+  signInWithSocial,
+  completeSocialSignIn,
+  cancelSocialSignIn,
+  type SocialProvider,
+} from "./social";
 import { identity } from "./identity";
-import type { IdentitySession } from "./identity-client";
+import { loginWithDemo, type PayrollSession } from "./demo-accounts";
 import type { RegistrationPayload } from "@indyzai/pos-auth/types";
 type SessionContext = {
-  session: IdentitySession | null;
+  session: PayrollSession | null;
   busy: boolean;
   initializing: boolean;
   error: string;
   retry: () => void;
   signIn: (email: string, password: string) => Promise<void>;
+  signInSocial: (provider: SocialProvider) => Promise<void>;
+  completeSocial: (code: string, state: string) => Promise<void>;
+  selectOrganization: (id: string) => void;
   signUp: (payload: RegistrationPayload) => Promise<void>;
   signOut: () => Promise<void>;
 };
 const Context = createContext<SessionContext | null>(null);
 export function PayrollSessionProvider({ children }: { children: ReactNode }) {
-  const [session, setSession] = useState<IdentitySession | null>(null);
+  const [session, setSession] = useState<PayrollSession | null>(null);
   const [busy, setBusy] = useState(false);
   const [initializing, setInitializing] = useState(true);
   const [error, setError] = useState("");
   const locked = useRef(false);
   const alive = useRef(true);
   const pendingSignOut = useRef(false);
+  const demoActive = useRef(false);
   const restore = useCallback(async () => {
-    if (locked.current) return;
+    if (locked.current || demoActive.current) return;
     locked.current = true;
     try {
       const next = await identity.restore();
@@ -72,7 +82,7 @@ export function PayrollSessionProvider({ children }: { children: ReactNode }) {
       clearInterval(interval);
     };
   }, [restore]);
-  async function authenticate(work: () => Promise<IdentitySession>) {
+  async function authenticate(work: () => Promise<PayrollSession | null>) {
     if (locked.current)
       throw Error("Please wait for the identity request to finish.");
     locked.current = true;
@@ -80,17 +90,27 @@ export function PayrollSessionProvider({ children }: { children: ReactNode }) {
     setError("");
     try {
       const next = await work();
-      if (alive.current) setSession(next);
+      if (alive.current && next) {
+        demoActive.current = next.kind === "demo";
+        setSession(next);
+      }
     } finally {
       locked.current = false;
       if (alive.current) setBusy(false);
     }
   }
   async function signOut() {
+    if (demoActive.current) {
+      demoActive.current = false;
+      setSession(null);
+      setError("");
+      return;
+    }
     pendingSignOut.current = true;
     setSession(null);
     setError("");
     try {
+      await cancelSocialSignIn();
       const revoked = await identity.logout();
       pendingSignOut.current = false;
       if (!revoked)
@@ -115,13 +135,28 @@ export function PayrollSessionProvider({ children }: { children: ReactNode }) {
             void signOut();
             return;
           }
-          if (!locked.current) {
+          if (!locked.current && !demoActive.current) {
             setInitializing(true);
             void restore();
           }
         },
         signIn: (email, password) =>
-          authenticate(() => identity.login(email, password)),
+          authenticate(() =>
+            loginWithDemo(email, password, (identifier, secret) =>
+              identity.login(identifier, secret),
+            ),
+          ),
+        signInSocial: (provider) =>
+          authenticate(() => signInWithSocial(provider)),
+        completeSocial: (code, state) =>
+          authenticate(() => completeSocialSignIn(code, state)),
+        selectOrganization: (id) => {
+          if (session?.kind === "demo") {
+            const tenant = session.user.tenants.find((item) => item.id === id);
+            if (!tenant) throw Error("That demo organization is unavailable.");
+            setSession({ ...session, tenant });
+          } else setSession(identity.selectOrganization(id));
+        },
         signUp: (payload) => authenticate(() => identity.register(payload)),
         signOut,
       }}

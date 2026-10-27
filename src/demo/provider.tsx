@@ -1,12 +1,16 @@
 import React, { createContext, useContext, useRef, useState } from "react";
-import { applyCommand, Command, seed, Workspace } from "./model";
+import { Command, seed, Workspace } from "./model";
+import type { WorkspaceRole } from "@/auth/access";
+import {
+  applyAuthorizedCommand,
+  visibleWorkspace,
+  canManageWorkspace,
+} from "./access";
 type Entry = { id: number; action: string; status: string };
 type Demo = {
   state: Workspace;
   employeeId: string;
-  setEmployeeId: (id: string) => void;
-  portal: "Employee" | "HR";
-  setPortal: (p: "Employee" | "HR") => void;
+  portal: WorkspaceRole;
   busy: boolean;
   error: string;
   notice: string;
@@ -20,15 +24,17 @@ const Context = createContext<Demo | null>(null);
 export function DemoProvider({
   children,
   initialPortal = "Employee",
+  initialEmployeeId = "IZ001",
 }: {
   children: React.ReactNode;
-  initialPortal?: "Employee" | "HR";
+  initialEmployeeId?: string;
+  initialPortal?: WorkspaceRole;
 }) {
   const [state, setState] = useState(seed);
   const current = useRef(state);
   const locked = useRef(false);
-  const [employeeId, setEmployeeId] = useState("IZ001");
-  const [portal, setPortal] = useState<"Employee" | "HR">(initialPortal);
+  const employeeId = initialEmployeeId;
+  const portal = initialPortal;
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
@@ -48,7 +54,10 @@ export function DemoProvider({
         throw Error(
           "Simulated connection failure. Your workspace is unchanged. Please retry.",
         );
-      current.current = applyCommand(current.current, command);
+      current.current = applyAuthorizedCommand(current.current, command, {
+        role: portal,
+        employeeId,
+      });
       setState(current.current);
       setLog((l) =>
         [
@@ -79,7 +88,7 @@ export function DemoProvider({
     }
   }
   function reset() {
-    if (locked.current) return;
+    if (locked.current || !canManageWorkspace(portal)) return;
     current.current = seed();
     setState(current.current);
     setLog([]);
@@ -90,17 +99,17 @@ export function DemoProvider({
   return (
     <Context.Provider
       value={{
-        state,
+        state: visibleWorkspace(state, { role: portal, employeeId }),
         employeeId,
-        setEmployeeId,
         portal,
-        setPortal,
         busy,
         error,
         notice,
         failNext,
-        setFailNext,
-        log,
+        setFailNext: (value) => {
+          if (canManageWorkspace(portal)) setFailNext(value);
+        },
+        log: canManageWorkspace(portal) ? log : [],
         run,
         reset,
       }}

@@ -1,15 +1,10 @@
+import { usePayrollSession } from "@/auth/session";
 import { useState } from "react";
 import { Text } from "react-native";
-import {
-  Button,
-  Card,
-  Field,
-  Row,
-  Screen,
-  usePayrollUi,
-} from "@/components/mobile-ui";
+import { Card, Field, Row, Screen, usePayrollUi } from "@/components/mobile-ui";
 import { useDemo } from "@/demo/provider";
 export default function People() {
+  const { session } = usePayrollSession();
   const { s } = usePayrollUi();
   const d = useDemo();
   const [search, setSearch] = useState("");
@@ -19,7 +14,7 @@ export default function People() {
   return (
     <Screen
       title="Good people. One team."
-      sub="Indyz Technologies · Employee directory"
+      sub={`${session?.tenant.name} · Demo employee directory`}
     >
       <Field
         label="Search people"
@@ -36,19 +31,6 @@ export default function People() {
             <Text style={s.small}>
               {p.status} · Joined {p.joined}
             </Text>
-            <Button
-              title={
-                d.employeeId === p.id
-                  ? "Current demo employee"
-                  : "View as demo employee"
-              }
-              disabled={d.employeeId === p.id}
-              secondary
-              onPress={() => {
-                d.setEmployeeId(p.id);
-                d.setPortal("Employee");
-              }}
-            />
           </Card>
         ))
       )}

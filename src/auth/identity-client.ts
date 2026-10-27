@@ -8,6 +8,7 @@ export type IdentityUser = {
   tenants: { id: string; name: string; role: string }[];
 };
 export type IdentitySession = {
+  kind: "identity";
   user: IdentityUser;
   tenant: IdentityUser["tenants"][number];
   email: string;
@@ -194,6 +195,7 @@ export function createIdentityClient(
           403,
         );
       session = {
+        kind: "identity",
         user,
         tenant,
         email: user.email,
@@ -211,6 +213,29 @@ export function createIdentityClient(
   }
   return {
     getSession: () => session,
+    selectOrganization(id: string) {
+      if (!session)
+        throw new IdentityError("Sign in before selecting an organization.");
+      const tenant = session.user.tenants.find((item) => item.id === id);
+      if (!tenant)
+        throw new IdentityError(
+          "That organization is not available to your account.",
+          403,
+        );
+      session = { ...session, tenant };
+      return session;
+    },
+    async exchangeApplicationCode(code: string, codeVerifier: string) {
+      if (!code || !codeVerifier)
+        throw new IdentityError(
+          "The social sign-in response is incomplete. Please start again.",
+        );
+      const version = ++generation;
+      return install(
+        await request("/auth/app/success", { code, codeVerifier }),
+        version,
+      );
+    },
     async login(email: string, password: string) {
       const identifier = email.trim();
       if (!/^(?:[^\s@]+@[^\s@]+|\+?[0-9]{7,15})$/.test(identifier) || !password)

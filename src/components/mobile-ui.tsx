@@ -1,4 +1,5 @@
 import React from "react";
+import { usePayrollSession } from "@/auth/session";
 import { BrandMark } from "./app-icon";
 import {
   Pressable,
@@ -31,6 +32,7 @@ export function Screen({
 }) {
   const { s, colors } = usePayrollUi();
   const d = useDemo();
+  const { session } = usePayrollSession();
   return (
     <SafeAreaView style={s.safe} edges={["top"]}>
       <ScrollView
@@ -48,25 +50,14 @@ export function Screen({
             <Text style={s.small}>INDIA · DEMO</Text>
           </View>
         </View>
-        <View style={[s.row, { marginTop: 16 }]}>
-          {(["Employee", "HR"] as const).map((p) => (
-            <Pressable
-              accessibilityRole="button"
-              accessibilityState={{ selected: d.portal === p }}
-              key={p}
-              onPress={() => d.setPortal(p)}
-              style={[s.segment, d.portal === p && s.selected]}
-            >
-              <Text
-                style={{
-                  color: d.portal === p ? colors.onPrimary : colors.muted,
-                  fontWeight: "600",
-                }}
-              >
-                {p === "HR" ? "HR workspace" : "My workspace"}
-              </Text>
-            </Pressable>
-          ))}
+        <Text accessibilityLabel="Current organization" style={s.small}>
+          {session?.tenant.name}
+          {session?.kind === "demo" ? ` · ${session.demoRole} demo` : ""}
+        </Text>
+        <View style={s.badge}>
+          <Text style={s.body}>
+            {d.portal === "Employee" ? "My workspace" : `${d.portal} workspace`}
+          </Text>
         </View>
         <Text style={s.eyebrow}>PAYROLL, WITH PEACE OF MIND</Text>
         <Text accessibilityRole="header" style={s.title}>

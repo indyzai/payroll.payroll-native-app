@@ -29,7 +29,7 @@ bun run web
 - Searchable employee directory and demo employee switching.
 - Failure injection, simulated request latency, bounded request log, and reset controls.
 
-Use the workspace selector at the top of each screen to switch between Employee and HR. Use People to change the demo employee. All demo roles are freely selectable; this is not authentication or authorization.
+The signed-in account determines the workspace role. There is no role selector or employee-impersonation action. Sign out and use another demo login to explore a different role.
 
 ## Architecture and limits
 
@@ -100,14 +100,40 @@ bun run test
 
 Update the submodule deliberately, rebase/review the app-local patch against the new shared version, then run the same checks. `bun run shared:prepare` verifies/applies the patch without installing dependencies. Do not edit or copy auth screen implementations into `src/auth`.
 
-Authentication is live; payroll data and financial actions remain simulated. Password sign-in sends credentials to the configured IndyzAI identity API, exchanges a one-time login code when required, then fetches canonical `/users/me` membership data. Registration creates a real account/organization using the API's exact enum values and an explicit organization domain. Sample credentials and the unauthenticated demo bypass have been removed.
+Authentication is live; payroll data and financial actions remain simulated. Password sign-in sends credentials to the configured IndyzAI identity API, exchanges a one-time login code when required, then fetches canonical `/users/me` membership data. Registration creates a real account/organization using the API's exact enum values and an explicit organization domain. Real credentials use the identity API; the separate fictional demo namespace below is handled locally.
 
 Native refresh credentials use Expo SecureStore under `com.indyzai.payroll.app.identity.v1`, scoped to this API URL and application ID. Access tokens stay in memory, as do browser refresh credentials (web reload requires sign-in). No POS storage, browser auth cookies, or other app sessions are read or cleared. Passwords are never stored or logged. Startup, foregrounding, and active ten-minute intervals renew the session; invalid credentials clear it, while temporary outages retain a retryable refresh credential. Sign-out clears local credentials and attempts server refresh-token revocation.
 
 Copy `.env.example` to `.env.local` for explicit overrides. Defaults: `https://api.indyzai.com/auth/api/v1`, app ID `payroll-app`, environment `prod`. Native development can point at an explicit HTTP identity endpoint; production builds require HTTPS. These public environment values contain no client secrets. Rebuild native apps after adding SecureStore.
 
-The identity service's public application list currently has no payroll registration. Password sign-in/code exchange and registration do not require OAuth redirects. Google/Microsoft and device-unlock buttons stay disabled until a separate payroll identity application and its callbacks are configured; do not reuse POS's client ID or redirect registrations. For future social sign-in, register `indyzpay://auth/callback` and the intended web callback origins, then implement the PKCE callback flow.
+Google and Microsoft buttons use Expo AuthSession with PKCE and strict state validation. Native requests keep a short-lived, app-scoped verification transaction in SecureStore so callbacks can survive process recreation; web uses a named popup and in-memory verifier. `/auth/app/success` exchanges the application code and `/users/me` supplies the canonical profile/memberships. Missing state, expired requests, duplicate/mismatched callbacks, and cancellation are handled without creating a session.
 
-Protected Expo Router routes require a real verified identity. The chosen Employee/HR view remains presentation for demo records, not an entitlement from the identity service. Real payroll APIs must enforce their own authorization and tenant isolation before replacing the demo command model. No production accounts are created by tests: HTTP contract tests inject mock responses.
+The identity service's public application list currently has no payroll registration. Social buttons are visible and give a configuration error until the identity administrator registers the payroll application and redirects in `config/identity-application.example.json`. Add the actual deployed web origin as well, and allow `http://localhost:6500` in CORS for local web development. No POS application registration is reused or changed. Device unlock remains unconfigured.
+
+Organization names, IDs, and membership roles come from `/users/me`, including the dashboard, directory, header, and Account. Users with multiple returned memberships can select an organization in Account. Selection is checked against the canonical membership list, preserved during refresh while still valid, and resets the in-memory simulated payroll workspace. After an app restart the first active membership is used. No salary records are fetched from the identity service.
+
+Protected Expo Router routes require either a verified identity or an explicit local demo session. Demo users receive their declared role. Live identities resolve access from their selected canonical organization membership: owner/admin → Admin; hr/hr_manager/payroll_manager → HR; all other roles → Employee. Unknown or generic manager roles do not imply payroll privileges. Real payroll APIs must enforce their own authorization and tenant isolation before replacing the demo command model. No production accounts are created by tests: HTTP contract tests inject mock responses.
 
 Metro and web development use port `6500` for `bun start`, `bun run ios`, `bun run android`, and `bun run web`. Use `bun run ios-build` to prebuild iOS with `RCT_METRO_PORT=6500` while preserving the existing native folder. For web sign-in, allow `http://localhost:6500` in the identity service CORS configuration.
+
+## Demo logins
+
+Expand **Demo accounts · Employee, HR & Admin** on the login page. Enter the sample credentials in the shared form or tap a role to enter it directly.
+
+| Role | Email | Password |
+| --- | --- | --- |
+| Employee | `employee@demo.indyzpay.test` | `DemoPay2026!` |
+| HR | `hr@demo.indyzpay.test` | `DemoPay2026!` |
+| Admin | `admin@demo.indyzpay.test` | `DemoPay2026!` |
+
+These fictional identities exist only in memory, never call the identity service, and never create or store access/refresh tokens. Wrong passwords or unknown addresses in this reserved namespace fail locally rather than reaching the real service. Employee opens self-service; HR opens team payroll/approvals; Admin opens the administrative demo view with simulation controls. All financial actions remain simulated. Demo users cannot switch roles from inside a workspace; use another demo account to explore a different role. Signing out removes the demo session and workspace; real password and social sign-in remain available.
+
+## Role-specific navigation and actions
+
+| Role | Screens and actions |
+| --- | --- |
+| Employee | Home, My pay, My requests, Account. Only the signed-in demo employee's salary/profile/requests are exposed. No team directory, approval actions, payroll-cycle controls, or administration. |
+| HR | Overview, Payroll, Approvals, People, Account. Can review team requests and advance simulated payroll; no reset, failure-injection, or request-log controls. |
+| Admin | HR management screens plus workspace administration, failure injection, reset, and request logs in Account. |
+
+The shared header displays a fixed workspace label instead of editable role buttons. Expo Router protects the People route from employees, including direct navigation. The shared command boundary independently rejects employee attempts to review/advance payroll or submit another employee's request, and the provider projects employee-visible state to their own records. Real payroll APIs must still enforce authorization server-side when replacing these simulations.

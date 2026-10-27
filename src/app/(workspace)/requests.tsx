@@ -44,7 +44,7 @@ export default function Requests() {
     }
   }
   const requests = d.state.requests.filter(
-    (r) => d.portal === "HR" || r.employeeId === d.employeeId,
+    (r) => d.portal !== "Employee" || r.employeeId === d.employeeId,
   );
   return (
     <Screen
@@ -130,7 +130,9 @@ export default function Requests() {
           </Card>
         </>
       ) : null}
-      <Heading>{d.portal === "HR" ? "Team requests" : "Your requests"}</Heading>
+      <Heading>
+        {d.portal !== "Employee" ? "Team requests" : "Your requests"}
+      </Heading>
       {requests.length === 0 ? (
         <Card>
           <Text style={s.small}>
@@ -151,7 +153,7 @@ export default function Requests() {
                 : money(r.amount)}{" "}
               · {r.id}
             </Text>
-            {d.portal === "HR" && r.status === "Pending" ? (
+            {d.portal !== "Employee" && r.status === "Pending" ? (
               <View style={s.row}>
                 <View style={{ flex: 1 }}>
                   <Button

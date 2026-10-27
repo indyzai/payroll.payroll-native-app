@@ -1,3 +1,4 @@
+import { usePayrollSession } from "@/auth/session";
 import { router } from "expo-router";
 import { Text, View } from "react-native";
 import {
@@ -11,6 +12,7 @@ import {
 import { breakdown, leaveAvailable, money } from "@/demo/model";
 import { useDemo } from "@/demo/provider";
 export default function Home() {
+  const { session } = usePayrollSession();
   const { s } = usePayrollUi();
   const { state, employeeId, portal } = useDemo();
   const person = state.people.find((p) => p.id === employeeId)!;
@@ -22,12 +24,14 @@ export default function Home() {
       title={
         portal === "Employee"
           ? `Hello, ${person.name.split(" ")[0]}.`
-          : "A clear view of payday."
+          : portal === "Admin"
+            ? "Admin overview."
+            : "A clear view of payday."
       }
       sub={
         portal === "Employee"
           ? "Your work. Your pay. All in one place."
-          : "Indyz Technologies · India workspace"
+          : `${session?.tenant.name} · India demo workspace`
       }
     >
       <Card dark>
@@ -80,7 +84,7 @@ export default function Home() {
             <Text style={[s.heading, { fontSize: 29 }]}>
               {
                 pending.filter(
-                  (r) => portal === "HR" || r.employeeId === employeeId,
+                  (r) => portal !== "Employee" || r.employeeId === employeeId,
                 ).length
               }
               <Text style={s.small}> requests</Text>
@@ -114,11 +118,13 @@ export default function Home() {
             value={r.status}
           />
         ))}
-        <Row
-          title="October payroll"
-          detail="Current simulated cycle"
-          value={state.paid ? "Complete" : "In progress"}
-        />
+        {portal !== "Employee" && (
+          <Row
+            title="October payroll"
+            detail="Current simulated cycle"
+            value={state.paid ? "Complete" : "In progress"}
+          />
+        )}
       </Card>
     </Screen>
   );

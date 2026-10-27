@@ -312,3 +312,39 @@ describe("identity endpoint configuration", () => {
     ).toBe("http://localhost:3504/api/v1");
   });
 });
+
+test("social application codes exchange through the identity API and hydrate /me", async () => {
+  const f = fixture([{ body: { tokens } }, { body: user }]);
+  expect(
+    (await f.client.exchangeApplicationCode("social-code", "pkce-verifier"))
+      .tenant.name,
+  ).toBe(user.tenants[0].name);
+  expect(f.calls[0].url).toBe(config.baseUrl + "/auth/app/success");
+  expect(JSON.parse(f.calls[0].init!.body as string)).toEqual({
+    code: "social-code",
+    codeVerifier: "pkce-verifier",
+  });
+  expect(f.calls[1].url).toBe(config.baseUrl + "/users/me");
+});
+test("organization selection uses canonical memberships and refresh preserves only valid selections", async () => {
+  const organization = {
+    id: "tenant-2",
+    name: "Second Organization",
+    role: "MEMBER",
+  };
+  const f = fixture([
+    { body: tokens },
+    { body: { ...user, tenants: [...user.tenants, organization] } },
+    { body: tokens },
+    { body: { ...user, tenants: [...user.tenants, organization] } },
+    { body: tokens },
+    { body: user },
+  ]);
+  await f.client.login(user.email, "password");
+  expect(f.client.selectOrganization("tenant-2").tenant).toEqual(organization);
+  expect(() =>
+    f.client.selectOrganization("unauthorized-organization"),
+  ).toThrow();
+  expect((await f.client.restore())?.tenant.id).toBe("tenant-2");
+  expect((await f.client.restore())?.tenant.id).toBe("tenant-1");
+});

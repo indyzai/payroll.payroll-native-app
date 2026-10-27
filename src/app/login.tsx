@@ -1,3 +1,4 @@
+import { DemoLogins } from "@/auth/demo-logins";
 import { usePayrollTheme } from "@/theme/payroll-theme";
 import { router } from "expo-router";
 import { Pressable, Text, View } from "react-native";
@@ -6,7 +7,7 @@ import { PayrollAuthSurface } from "@/auth/payroll-auth";
 import { usePayrollSession } from "@/auth/session";
 export default function Login() {
   const { themeColors: c } = usePayrollTheme();
-  const { signIn, error, retry } = usePayrollSession();
+  const { signIn, signInSocial, error, retry } = usePayrollSession();
   return (
     <PayrollAuthSurface>
       {error ? (
@@ -21,11 +22,13 @@ export default function Login() {
       ) : null}
       <LoginScreen
         onLogin={({ email, password }) => signIn(email, password)}
+        onSocialLogin={signInSocial}
         onSignUp={() => router.push("/signup")}
         onDeviceLogin={async () => {
           throw Error("Device unlock is not configured for payroll.");
         }}
       />
+      <DemoLogins />
     </PayrollAuthSurface>
   );
 }

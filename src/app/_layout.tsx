@@ -41,6 +41,7 @@ function Navigator() {
       <Stack.Protected guard={!!session}>
         <Stack.Screen name="(workspace)" />
       </Stack.Protected>
+      <Stack.Screen name="auth/callback" />
     </Stack>
   );
 }
