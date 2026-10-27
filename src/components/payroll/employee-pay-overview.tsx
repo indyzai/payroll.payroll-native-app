@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState, type ComponentRef } from "react";
 import { Pressable, ScrollView, Share, Text, View } from "react-native";
 import {
   Button,
@@ -35,14 +35,16 @@ const breakups: { key: keyof PayAmounts; label: string; total?: boolean }[] = [
 ];
 const headerHeight = 54;
 const statusHeight = 64;
-const rowHeight = 52;
+const rowHeight = 72;
 export function EmployeePayOverview() {
   const { state, employeeId } = useDemo();
   const [tableWidth, setTableWidth] = useState(320);
+  const [labelsFloating, setLabelsFloating] = useState(false);
+  const labelWidth = 112;
+  const monthHeader = useRef<ComponentRef<typeof ScrollView>>(null);
   const compact = tableWidth < 500;
-  const labelWidth = compact ? 100 : 144;
   const monthWidth = compact
-    ? Math.max(84, Math.floor((tableWidth - labelWidth - 2) / 2))
+    ? Math.max(92, Math.floor((tableWidth - 2) / 3))
     : 132;
   const { s, colors } = usePayrollUi();
   const today = indiaDateKey();
@@ -159,164 +161,89 @@ export function EmployeePayOverview() {
       </Card>
       <Heading>Monthly take-home table</Heading>
       <Text style={s.small}>
-        Amounts in INR. Months run across the top; salary breakups stay fixed on the left. Swipe
-        to compare all 12 months. Tap a month column for its detailed payslip
+        Amounts in INR. Breakup names start in the first column and float above the values when you swipe across months. Swipe
+        to compare all 12 months. Month headers stay above the amounts; scroll down inside the table for more breakups. Tap a month column for its detailed payslip
         below the table. Actuals are recorded demo payments; predictions are
         estimates.
       </Text>
       <View
         onLayout={({ nativeEvent }) => setTableWidth(nativeEvent.layout.width)}
-        style={{
-          flexDirection: "row",
-          borderWidth: 1,
-          borderColor: colors.line,
-          borderRadius: 12,
-          overflow: "hidden",
-          backgroundColor: colors.surface,
-        }}
+        style={{ borderWidth: 1, borderColor: colors.line, borderRadius: 12,
+          overflow: "hidden", backgroundColor: colors.surface }}
       >
-        <View
-          style={{
-            width: labelWidth,
-            flexShrink: 0,
-            borderRightWidth: 1,
-            borderColor: colors.line,
-          }}
-        >
-          <Text
-            accessibilityRole="header"
-            style={[
-              cell,
-              {
-                height: headerHeight,
-                backgroundColor: colors.pale,
-                fontWeight: "700",
-                borderBottomWidth: 1,
-                borderColor: colors.line,
-              },
-            ]}
-          >
-            Salary breakup
-          </Text>
-          <Text
-            style={[
-              cell,
-              {
-                height: statusHeight,
-                color: colors.muted,
-                borderBottomWidth: 1,
-                borderColor: colors.line,
-              },
-            ]}
-          >
-            Record type
-          </Text>
-          {breakups.map((item) => (
-            <Text
-              key={item.key}
-              accessibilityRole="header"
-              style={[
-                cell,
-                {
-                  height: rowHeight,
-                  fontWeight: item.total ? "700" : "500",
-                  backgroundColor:
-                    item.key === "net" ? colors.pale : colors.surface,
-                  color: item.key === "net" ? colors.green : colors.ink,
-                  borderBottomWidth: 1,
-                  borderColor: colors.line,
-                },
-              ]}
-            >
-              {item.label}
-            </Text>
-          ))}
-        </View>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator
-          style={{ flex: 1 }}
-          accessibilityLabel={`${financialYearLabel(year)} take-home table, months across columns and salary breakups down rows`}
-        >
-          <View style={{ flexDirection: "row" }}>
+        <View style={{ flexDirection: "row", backgroundColor: colors.pale,
+          borderBottomWidth: 2, borderColor: colors.line, zIndex: 1 }}>
+          <ScrollView ref={monthHeader} horizontal scrollEnabled={false}
+            showsHorizontalScrollIndicator={false} style={{ flex: 1 }}>
+            <Text accessibilityRole="header" style={[cell, { width: labelWidth, fontWeight: "700" }]}>Salary breakup</Text>
             {rows.map((row) => (
-              <Pressable
-                key={row.month}
-                accessibilityRole="button"
+              <Pressable key={row.month} accessibilityRole="button"
+                accessibilityLabel={`${monthLabel(row.month)}, ${statusLabels[row.status]}. Select salary details.`}
                 accessibilityState={{ selected: selected.month === row.month }}
-                accessibilityLabel={`${monthLabel(row.month)}, ${statusLabels[row.status]}, take-home ${row.amounts ? money(row.amounts.net) : "not available"}. Select for salary details.`}
-                onPress={() => {
-                  setSelectedMonth(row.month);
-                  setShareError("");
-                }}
-                style={({ pressed }) => ({
-                  width: monthWidth,
-                  borderRightWidth: 1,
-                  borderColor: colors.line,
-                  backgroundColor:
-                    pressed || selected.month === row.month
-                      ? colors.pale
-                      : colors.surface,
-                })}
-              >
-                <Text
-                  accessibilityRole="header"
-                  style={[
-                    cell,
-                    {
-                      height: headerHeight,
-                      textAlign: "center",
-                      fontWeight: "700",
-                      backgroundColor: colors.pale,
-                      borderBottomWidth: 1,
-                      borderColor: colors.line,
-                    },
-                  ]}
-                >
+                onPress={() => { setSelectedMonth(row.month); setShareError(""); }}
+                style={{ width: monthWidth, borderRightWidth: 1, borderColor: colors.line }}>
+                <Text accessibilityRole="header" style={[cell, { height: headerHeight, textAlign: "center", fontWeight: "700" }]}>
                   {compact ? monthLabel(row.month).split(" ")[0] : monthLabel(row.month)}
                 </Text>
-                <Text
-                  style={[
-                    cell,
-                    {
-                      height: statusHeight,
-                      textAlign: "center",
-                      color:
-                        row.status === "actual" ? colors.green : colors.muted,
-                      borderBottomWidth: 1,
-                      borderColor: colors.line,
-                    },
-                  ]}
-                >
-                  {statusLabels[row.status]}
-                </Text>
-                {breakups.map((item) => (
-                  <Text
-                    key={item.key}
-                    style={[
-                      cell,
-                      {
-                        height: rowHeight,
-                        textAlign: "right",
-                        fontWeight: item.total ? "700" : "400",
-                        color: item.key === "net" ? colors.green : colors.ink,
-                        backgroundColor:
-                          item.key === "net" ? colors.pale : undefined,
-                        fontVariant: ["tabular-nums"],
-                        borderBottomWidth: 1,
-                        borderColor: colors.line,
-                      },
-                    ]}
-                  >
-                    {row.amounts
-                      ? compact
-                        ? Math.round(row.amounts[item.key]).toLocaleString("en-IN")
-                        : money(row.amounts[item.key])
-                      : "—"}
-                  </Text>
-                ))}
+                <Text style={[cell, { height: statusHeight, textAlign: "center",
+                  color: row.status === "actual" ? colors.green : colors.muted }]}>{statusLabels[row.status]}</Text>
               </Pressable>
             ))}
+          </ScrollView>
+        </View>
+        <ScrollView nestedScrollEnabled style={{ height: rowHeight * 5 }}
+          accessibilityLabel="Salary breakdown rows. Scroll vertically for more breakups.">
+          <View>
+            {/* Floating row labels occupy only the space above the amounts. */}
+            <View pointerEvents="none" style={{ opacity: labelsFloating ? 1 : 0, position: "absolute", left: 0, right: 0,
+              top: 0, zIndex: 2 }}>
+              {breakups.map((item) => (
+                <View key={item.key} style={{ height: rowHeight, alignItems: "flex-start" }}>
+                  <Text accessibilityRole="header" style={{ marginLeft: 8, marginTop: 5,
+                    paddingHorizontal: 5, paddingVertical: 2, borderRadius: 4,
+                    fontSize: 12, fontWeight: item.total ? "700" : "500",
+                    backgroundColor: colors.surface,
+                    color: item.key === "net" ? colors.green : colors.muted,
+                  }}>{item.label}</Text>
+                </View>
+              ))}
+            </View>
+            <ScrollView horizontal nestedScrollEnabled directionalLockEnabled
+              scrollEventThrottle={16} bounces={false}
+              onScroll={({ nativeEvent }) => {
+                const x = nativeEvent.contentOffset.x;
+                setLabelsFloating(x > 1);
+                monthHeader.current?.scrollTo({ x, animated: false });
+              }}
+              style={{ width: Math.max(0, tableWidth - 2), flexGrow: 0 }} showsHorizontalScrollIndicator
+              accessibilityLabel={`${financialYearLabel(year)} salary amounts. Swipe horizontally to compare months.`}>
+              <View style={{ width: labelWidth }}>
+                {breakups.map((item) => (
+                  <Text key={item.key} accessibilityRole="header"
+                    style={[cell, { height: rowHeight, paddingTop: 34,
+                      fontWeight: item.total ? "700" : "500", borderBottomWidth: 1,
+                      borderRightWidth: 1, borderColor: colors.line,
+                      color: item.key === "net" ? colors.green : colors.ink,
+                    }]}>{item.label}</Text>
+                ))}
+              </View>
+              {rows.map((row) => (
+                <Pressable key={row.month} accessibilityRole="button"
+                  accessibilityState={{ selected: selected.month === row.month }}
+                  accessibilityLabel={`${monthLabel(row.month)}, ${statusLabels[row.status]}, take-home ${row.amounts ? money(row.amounts.net) : "not available"}. Select salary details.`}
+                  onPress={() => { setSelectedMonth(row.month); setShareError(""); }}
+                  style={({ pressed }) => ({ width: monthWidth, borderRightWidth: 1,
+                    borderColor: colors.line, backgroundColor: pressed || selected.month === row.month ? colors.pale : colors.surface })}>
+                  {breakups.map((item) => (
+                    <Text key={item.key} style={[cell, { height: rowHeight, paddingTop: 34, paddingBottom: 12, textAlign: "right",
+                      fontWeight: item.total ? "700" : "400", color: item.key === "net" ? colors.green : colors.ink,
+                      backgroundColor: item.key === "net" ? colors.pale : undefined,
+                      fontVariant: ["tabular-nums"], borderBottomWidth: 1, borderColor: colors.line,
+                    }]}>{row.amounts ? compact ? Math.round(row.amounts[item.key]).toLocaleString("en-IN") : money(row.amounts[item.key]) : "—"}</Text>
+                  ))}
+                </Pressable>
+              ))}
+            </ScrollView>
           </View>
         </ScrollView>
       </View>
