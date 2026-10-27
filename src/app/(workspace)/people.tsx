@@ -1,8 +1,16 @@
 import { useState } from "react";
 import { Text } from "react-native";
-import { Button, Card, Field, Row, Screen, s } from "@/components/mobile-ui";
+import {
+  Button,
+  Card,
+  Field,
+  Row,
+  Screen,
+  usePayrollUi,
+} from "@/components/mobile-ui";
 import { useDemo } from "@/demo/provider";
 export default function People() {
+  const { s } = usePayrollUi();
   const d = useDemo();
   const [search, setSearch] = useState("");
   const people = d.state.people.filter((p) =>

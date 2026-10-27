@@ -6,12 +6,12 @@ import {
   Heading,
   Row,
   Screen,
-  s,
-  colors,
+  usePayrollUi,
 } from "@/components/mobile-ui";
 import { breakdown, money, stages } from "@/demo/model";
 import { useDemo } from "@/demo/provider";
 export default function Payroll() {
+  const { s, colors } = usePayrollUi();
   const d = useDemo();
   const [shareError, setShareError] = useState("");
   const p = d.state.people.find((p) => p.id === d.employeeId)!;
@@ -19,7 +19,7 @@ export default function Payroll() {
   async function share() {
     try {
       await Share.share({
-        title: "indyzpay simulated payslip",
+        title: "IndyzPay simulated payslip",
         message: `SIMULATED PAYSLIP — NOT A PAYMENT RECORD\nSeptember 2026\n${p.name} · ${p.id}\nGross: ${money(b.gross)}\nDeductions: ${money(b.ded)}\nNet: ${money(b.net)}\nCurrency: INR\nDemo estimate, not statutory advice.`,
       });
     } catch {

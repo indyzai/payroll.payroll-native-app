@@ -17,12 +17,18 @@ type Demo = {
   reset: () => void;
 };
 const Context = createContext<Demo | null>(null);
-export function DemoProvider({ children }: { children: React.ReactNode }) {
+export function DemoProvider({
+  children,
+  initialPortal = "Employee",
+}: {
+  children: React.ReactNode;
+  initialPortal?: "Employee" | "HR";
+}) {
   const [state, setState] = useState(seed);
   const current = useRef(state);
   const locked = useRef(false);
   const [employeeId, setEmployeeId] = useState("IZ001");
-  const [portal, setPortal] = useState<"Employee" | "HR">("Employee");
+  const [portal, setPortal] = useState<"Employee" | "HR">(initialPortal);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");

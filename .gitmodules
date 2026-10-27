@@ -1,0 +1,3 @@
+[submodule "vendor/pos-ui-shared"]
+	path = vendor/pos-ui-shared
+	url = https://github.com/indyzai/pos.pos-ui-shared.git

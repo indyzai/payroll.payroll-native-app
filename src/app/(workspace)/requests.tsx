@@ -7,11 +7,12 @@ import {
   Heading,
   Row,
   Screen,
-  s,
+  usePayrollUi,
 } from "@/components/mobile-ui";
 import { dateDays, leaveAvailable, money, Request } from "@/demo/model";
 import { useDemo } from "@/demo/provider";
 export default function Requests() {
+  const { s } = usePayrollUi();
   const d = useDemo();
   const [kind, setKind] = useState<"Leave" | "Expense">("Leave");
   const [title, setTitle] = useState("");

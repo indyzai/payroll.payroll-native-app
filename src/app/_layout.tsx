@@ -1,46 +1,51 @@
-import { Tabs } from "expo-router";
-import { AppIcon, type IconName } from "@/components/app-icon";
+import { PayrollThemeProvider, usePayrollTheme } from "@/theme/payroll-theme";
 import { StatusBar } from "expo-status-bar";
-import { DemoProvider } from "@/demo/provider";
-import { colors } from "@/components/mobile-ui";
-export default function Layout() {
+import { ActivityIndicator, View } from "react-native";
+import { Stack } from "expo-router";
+import { PayrollSessionProvider, usePayrollSession } from "@/auth/session";
+export default function RootLayout() {
   return (
-    <DemoProvider>
-      <StatusBar style="dark" />
-      <Tabs
-        screenOptions={{
-          headerShown: false,
-          tabBarActiveTintColor: colors.green,
-          tabBarInactiveTintColor: colors.muted,
-          tabBarStyle: {
-            backgroundColor: "#FFF",
-            borderTopColor: colors.line,
-            height: 82,
-            paddingTop: 10,
-            paddingBottom: 22,
-          },
-          tabBarLabelStyle: { fontSize: 11 },
+    <PayrollThemeProvider>
+      <ThemeStatusBar />
+      <PayrollSessionProvider>
+        <Navigator />
+      </PayrollSessionProvider>
+    </PayrollThemeProvider>
+  );
+}
+function Navigator() {
+  const { colors } = usePayrollTheme();
+  const { session, initializing } = usePayrollSession();
+  if (initializing)
+    return (
+      <View
+        style={{
+          flex: 1,
+          alignItems: "center",
+          justifyContent: "center",
+          backgroundColor: colors.bg,
         }}
       >
-        {[
-          { name: "index", title: "Home", icon: "home" },
-          { name: "payroll", title: "Payroll", icon: "payroll" },
-          { name: "requests", title: "Requests", icon: "requests" },
-          { name: "people", title: "People", icon: "people" },
-          { name: "settings", title: "Account", icon: "account" },
-        ].map((t) => (
-          <Tabs.Screen
-            key={t.name}
-            name={t.name}
-            options={{
-              title: t.title,
-              tabBarIcon: ({ color }) => (
-                <AppIcon name={t.icon as IconName} color={color} />
-              ),
-            }}
-          />
-        ))}
-      </Tabs>
-    </DemoProvider>
+        <ActivityIndicator
+          accessibilityLabel="Connecting to your identity session"
+          color={colors.green}
+        />
+      </View>
+    );
+  return (
+    <Stack screenOptions={{ headerShown: false }}>
+      <Stack.Protected guard={!session}>
+        <Stack.Screen name="login" />
+        <Stack.Screen name="signup" />
+      </Stack.Protected>
+      <Stack.Protected guard={!!session}>
+        <Stack.Screen name="(workspace)" />
+      </Stack.Protected>
+    </Stack>
   );
+}
+
+function ThemeStatusBar() {
+  const { isDark } = usePayrollTheme();
+  return <StatusBar style={isDark ? "light" : "dark"} />;
 }

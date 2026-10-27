@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "indyzpay",
+    "name": "IndyzPay",
     "slug": "indyzpay",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -40,7 +40,8 @@
             "image": "./assets/icons/android/splash.png"
           }
         }
-      ]
+      ],
+      "expo-secure-store"
     ],
     "experiments": {
       "typedRoutes": true,

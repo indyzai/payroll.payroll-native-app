@@ -1,3 +1,5 @@
+import { usePayrollSession } from "@/auth/session";
+import { usePayrollTheme } from "@/theme/payroll-theme";
 import { useState } from "react";
 import { Switch, Text, View } from "react-native";
 import {
@@ -6,12 +8,20 @@ import {
   Heading,
   Row,
   Screen,
-  s,
-  colors,
+  usePayrollUi,
 } from "@/components/mobile-ui";
 import { useDemo } from "@/demo/provider";
 export default function Settings() {
+  const { s, colors } = usePayrollUi();
+  const { mode, setMode } = usePayrollTheme();
   const d = useDemo();
+  const {
+    session,
+    signOut,
+    busy: identityBusy,
+    error: identityError,
+    retry,
+  } = usePayrollSession();
   const [confirm, setConfirm] = useState(false);
   const p = d.state.people.find((p) => p.id === d.employeeId)!;
   return (
@@ -27,6 +37,46 @@ export default function Settings() {
           Use People to switch the demo employee. Portal switching is a demo
           control, not authentication.
         </Text>
+      </Card>
+      <Card>
+        <Row
+          title="Signed-in identity"
+          detail={session?.email}
+          value="IndyzAI"
+        />
+        <Text style={s.small}>
+          Your identity is live. Employee records and payroll actions below are
+          simulations. Signing out clears this app’s payroll workspace.
+        </Text>
+        <Row title="Identity organization" value={session?.tenant.name} />
+        {identityError ? (
+          <>
+            <Text accessibilityRole="alert" style={s.error}>
+              {identityError}
+            </Text>
+            <Button
+              title="Retry identity connection"
+              secondary
+              onPress={retry}
+            />
+          </>
+        ) : null}
+        <Button
+          title="Sign out"
+          disabled={identityBusy}
+          secondary
+          onPress={() => {
+            void signOut();
+          }}
+        />
+      </Card>
+      <Card>
+        <Row title="Appearance" value={mode === "dark" ? "Dark" : "Light"} />
+        <Button
+          secondary
+          title={mode === "light" ? "Use dark theme" : "Use light theme"}
+          onPress={() => setMode(mode === "light" ? "dark" : "light")}
+        />
       </Card>
       <Heading>Simulation controls</Heading>
       <Card>
@@ -47,7 +97,8 @@ export default function Settings() {
         </View>
         <Text style={s.small}>
           Requests run locally with 550 ms latency. Data stays in memory; no
-          bank, HRMS, identity, or government services are contacted.
+          bank, HRMS, or government services are contacted. Sign-in uses the
+          real IndyzAI identity service.
         </Text>
         <Button
           title={

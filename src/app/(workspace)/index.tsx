@@ -1,9 +1,17 @@
 import { router } from "expo-router";
 import { Text, View } from "react-native";
-import { Button, Card, Heading, Row, Screen, s } from "@/components/mobile-ui";
+import {
+  Button,
+  Card,
+  Heading,
+  Row,
+  Screen,
+  usePayrollUi,
+} from "@/components/mobile-ui";
 import { breakdown, leaveAvailable, money } from "@/demo/model";
 import { useDemo } from "@/demo/provider";
 export default function Home() {
+  const { s } = usePayrollUi();
   const { state, employeeId, portal } = useDemo();
   const person = state.people.find((p) => p.id === employeeId)!;
   const pay = breakdown(person.ctc);

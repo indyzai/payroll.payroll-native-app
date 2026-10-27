@@ -10,15 +10,16 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useDemo } from "@/demo/provider";
-export const colors = {
-  bg: "#F7F8F2",
-  ink: "#173E34",
-  green: "#18664F",
-  muted: "#738078",
-  line: "#E2E7DD",
-  pale: "#EAF0E5",
-  gold: "#E4BB69",
-};
+import { usePayrollTheme } from "@/theme/payroll-theme";
+import {
+  lightPalette,
+  darkPalette,
+  type PayrollPalette,
+} from "@/theme/palette";
+export function usePayrollUi() {
+  const { colors, mode } = usePayrollTheme();
+  return { colors, s: mode === "dark" ? darkStyles : lightStyles };
+}
 export function Screen({
   title,
   sub,
@@ -28,6 +29,7 @@ export function Screen({
   sub: string;
   children: React.ReactNode;
 }) {
+  const { s, colors } = usePayrollUi();
   const d = useDemo();
   return (
     <SafeAreaView style={s.safe} edges={["top"]}>
@@ -39,7 +41,7 @@ export function Screen({
           <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
             <BrandMark />
             <Text style={s.brand}>
-              indyzpay<Text style={{ color: colors.green }}>.</Text>
+              IndyzPay<Text style={{ color: colors.green }}>.</Text>
             </Text>
           </View>
           <View style={s.badge}>
@@ -57,7 +59,7 @@ export function Screen({
             >
               <Text
                 style={{
-                  color: d.portal === p ? "white" : colors.muted,
+                  color: d.portal === p ? colors.onPrimary : colors.muted,
                   fontWeight: "600",
                 }}
               >
@@ -97,11 +99,12 @@ export function Card({
   children: React.ReactNode;
   dark?: boolean;
 }) {
+  const { s, colors } = usePayrollUi();
   return (
     <View
       style={[
         s.card,
-        dark && { backgroundColor: colors.ink, borderColor: colors.ink },
+        dark && { backgroundColor: colors.hero, borderColor: colors.hero },
       ]}
     >
       {children}
@@ -109,9 +112,11 @@ export function Card({
   );
 }
 export function Label({ children }: { children: React.ReactNode }) {
+  const { s } = usePayrollUi();
   return <Text style={s.label}>{children}</Text>;
 }
 export function Heading({ children }: { children: React.ReactNode }) {
+  const { s } = usePayrollUi();
   return (
     <Text accessibilityRole="header" style={s.heading}>
       {children}
@@ -129,6 +134,7 @@ export function Button({
   secondary?: boolean;
   disabled?: boolean;
 }) {
+  const { s, colors } = usePayrollUi();
   const { busy } = useDemo();
   return (
     <Pressable
@@ -144,7 +150,7 @@ export function Button({
     >
       <Text
         style={{
-          color: secondary ? colors.green : "white",
+          color: secondary ? colors.green : colors.onPrimary,
           fontWeight: "600",
           textAlign: "center",
         }}
@@ -167,6 +173,7 @@ export function Field({
   numeric?: boolean;
   placeholder?: string;
 }) {
+  const { s, colors } = usePayrollUi();
   return (
     <View style={{ gap: 8 }}>
       <Label>{label}</Label>
@@ -192,6 +199,7 @@ export function Row({
   detail?: string;
   value?: string;
 }) {
+  const { s } = usePayrollUi();
   return (
     <View style={s.listRow}>
       <View style={{ flex: 1, gap: 5 }}>
@@ -202,113 +210,122 @@ export function Row({
     </View>
   );
 }
-export const s = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: colors.bg },
-  page: {
-    padding: 24,
-    gap: 16,
-    maxWidth: 720,
-    width: "100%",
-    alignSelf: "center",
-    paddingBottom: 36,
-  },
-  row: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-    justifyContent: "space-between",
-  },
-  brand: {
-    color: colors.ink,
-    fontWeight: "800",
-    fontSize: 26,
-    letterSpacing: -1,
-  },
-  badge: { padding: 8, borderRadius: 6, backgroundColor: colors.pale },
-  small: { color: colors.muted, fontSize: 12, lineHeight: 18 },
-  segment: {
-    flex: 1,
-    padding: 13,
-    borderRadius: 8,
-    alignItems: "center",
-    backgroundColor: colors.pale,
-  },
-  selected: { backgroundColor: colors.green },
-  eyebrow: {
-    fontSize: 10,
-    letterSpacing: 2,
-    fontWeight: "700",
-    color: colors.green,
-    marginTop: 16,
-  },
-  title: {
-    fontSize: 36,
-    fontFamily: "Georgia",
-    color: colors.ink,
-    letterSpacing: -1,
-  },
-  sub: { color: colors.muted, lineHeight: 22, marginTop: -8 },
-  card: {
-    padding: 22,
-    backgroundColor: "#FFFFFF",
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: colors.line,
-    gap: 14,
-  },
-  heading: { color: colors.ink, fontSize: 20, fontWeight: "600", marginTop: 8 },
-  label: { color: colors.muted, fontSize: 12, fontWeight: "600" },
-  body: { color: colors.ink, fontSize: 15, fontWeight: "500" },
-  value: { color: colors.green, fontWeight: "600", fontSize: 15 },
-  heroValue: {
-    color: "white",
-    fontSize: 42,
-    letterSpacing: -1,
-    fontWeight: "500",
-  },
-  button: {
-    minHeight: 48,
-    padding: 14,
-    borderRadius: 9,
-    justifyContent: "center",
-    backgroundColor: colors.green,
-  },
-  secondary: { backgroundColor: colors.pale },
-  input: {
-    borderWidth: 1,
-    borderColor: colors.line,
-    borderRadius: 8,
-    padding: 14,
-    color: colors.ink,
-    backgroundColor: "#FFF",
-    minHeight: 48,
-  },
-  listRow: {
-    flexDirection: "row",
-    gap: 12,
-    alignItems: "center",
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.line,
-  },
-  error: {
-    color: "#9C3030",
-    padding: 14,
-    backgroundColor: "#FBE9E5",
-    borderRadius: 8,
-    lineHeight: 21,
-  },
-  notice: {
-    color: colors.green,
-    padding: 14,
-    backgroundColor: colors.pale,
-    borderRadius: 8,
-  },
-  footer: {
-    textAlign: "center",
-    fontSize: 11,
-    color: colors.muted,
-    lineHeight: 19,
-    marginTop: 16,
-  },
-});
+const createStyles = (colors: PayrollPalette) =>
+  StyleSheet.create({
+    safe: { flex: 1, backgroundColor: colors.bg },
+    page: {
+      padding: 24,
+      gap: 16,
+      maxWidth: 720,
+      width: "100%",
+      alignSelf: "center",
+      paddingBottom: 36,
+    },
+    row: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 10,
+      justifyContent: "space-between",
+    },
+    brand: {
+      color: colors.ink,
+      fontWeight: "800",
+      fontSize: 26,
+      letterSpacing: -1,
+    },
+    badge: { padding: 8, borderRadius: 6, backgroundColor: colors.pale },
+    small: { color: colors.muted, fontSize: 12, lineHeight: 18 },
+    segment: {
+      flex: 1,
+      padding: 13,
+      borderRadius: 8,
+      alignItems: "center",
+      backgroundColor: colors.pale,
+    },
+    selected: { backgroundColor: colors.green },
+    eyebrow: {
+      fontSize: 10,
+      letterSpacing: 2,
+      fontWeight: "700",
+      color: colors.green,
+      marginTop: 16,
+    },
+    title: {
+      fontSize: 36,
+      fontFamily: "Georgia",
+      color: colors.ink,
+      letterSpacing: -1,
+    },
+    sub: { color: colors.muted, lineHeight: 22, marginTop: -8 },
+    card: {
+      padding: 22,
+      backgroundColor: colors.surface,
+      borderRadius: 16,
+      borderWidth: 1,
+      borderColor: colors.line,
+      gap: 14,
+    },
+    heading: {
+      color: colors.ink,
+      fontSize: 20,
+      fontWeight: "600",
+      marginTop: 8,
+    },
+    label: { color: colors.muted, fontSize: 12, fontWeight: "600" },
+    body: { color: colors.ink, fontSize: 15, fontWeight: "500" },
+    value: { color: colors.green, fontWeight: "600", fontSize: 15 },
+    heroValue: {
+      color: "white",
+      fontSize: 42,
+      letterSpacing: -1,
+      fontWeight: "500",
+    },
+    button: {
+      minHeight: 48,
+      padding: 14,
+      borderRadius: 9,
+      justifyContent: "center",
+      backgroundColor: colors.green,
+    },
+    secondary: { backgroundColor: colors.pale },
+    input: {
+      borderWidth: 1,
+      borderColor: colors.line,
+      borderRadius: 8,
+      padding: 14,
+      color: colors.ink,
+      backgroundColor: colors.surface,
+      minHeight: 48,
+    },
+    listRow: {
+      flexDirection: "row",
+      gap: 12,
+      alignItems: "center",
+      paddingVertical: 12,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.line,
+    },
+    error: {
+      color: colors.error,
+      padding: 14,
+      backgroundColor: colors.errorSoft,
+      borderRadius: 8,
+      lineHeight: 21,
+    },
+    notice: {
+      color: colors.green,
+      padding: 14,
+      backgroundColor: colors.pale,
+      borderRadius: 8,
+    },
+    footer: {
+      textAlign: "center",
+      fontSize: 11,
+      color: colors.muted,
+      lineHeight: 19,
+      marginTop: 16,
+    },
+  });
+
+const lightStyles = createStyles(lightPalette);
+const darkStyles = createStyles(darkPalette);
